@@ -1,0 +1,46 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# 建置輸出
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# 測試
+*.test
+*.out
+coverage.*
+
+# 依賴
+vendor/
+
+# 環境變數
+.env
+.env.local
+.env.*.local
+
+# 文件
+README.md
+docs/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# 其他
+tmp/
+temp/
+*.log
+

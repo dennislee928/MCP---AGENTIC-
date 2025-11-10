@@ -1,0 +1,258 @@
+# 統一安全平台 - Docker Compose 配置
+# 整合所有服務：Go 後端、Python AI/量子、Python HexStrike AI、Next.js 前端
+
+version: '3.8'
+
+networks:
+  unified-security-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  vault_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+  scan_results:
+
+services:
+  # ============================================
+  # 資料層
+  # ============================================
+  
+  postgres:
+    image: postgres:15-alpine
+    container_name: unified-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-sectools}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_DB: ${DB_NAME:-sectools}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../../init_scripts:/docker-entrypoint-initdb.d:ro
+    networks:
+      - unified-security-net
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sectools"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: unified-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - unified-security-net
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ============================================
+  # 密鑰管理
+  # ============================================
+  
+  vault:
+    image: vault:1.13.3
+    container_name: unified-vault
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_TOKEN:-root}
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    volumes:
+      - vault_data:/vault/data
+    networks:
+      - unified-security-net
+    ports:
+      - "8200:8200"
+    restart: unless-stopped
+
+  # ============================================
+  # Go 後端服務（防禦面）
+  # ============================================
+  
+  backend:
+    build:
+      context: ../../src/backend
+      dockerfile: Dockerfile
+    container_name: unified-backend
+    environment:
+      # 伺服器配置
+      SERVER_PORT: 3001
+      SERVER_HOST: 0.0.0.0
+      GIN_MODE: ${GIN_MODE:-release}
+      
+      # 資料庫配置
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-sectools}
+      DB_PASSWORD: ${DB_PASSWORD:-changeme}
+      DB_NAME: ${DB_NAME:-sectools}
+      DB_SSLMODE: disable
+      
+      # Redis 配置
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      
+      # JWT 配置
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key}
+      JWT_EXPIRATION: 24h
+      
+      # 外部服務配置
+      HEXSTRIKE_URL: http://hexstrike-ai:8888
+      AI_QUANTUM_URL: http://ai-quantum:8000
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN:-root}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      vault:
+        condition: service_started
+    networks:
+      - unified-security-net
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+
+  # ============================================
+  # Python AI/量子服務
+  # ============================================
+  
+  ai-quantum:
+    build:
+      context: ../../src/ai-quantum
+      dockerfile: Dockerfile
+    container_name: unified-ai-quantum
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8000
+      DEBUG: ${DEBUG:-false}
+      
+      BACKEND_URL: http://backend:3001
+      HEXSTRIKE_URL: http://hexstrike-ai:8888
+      
+      IBM_QUANTUM_TOKEN: ${IBM_QUANTUM_TOKEN:-}
+      IBM_QUANTUM_CHANNEL: ibm_quantum
+      
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      - backend
+    networks:
+      - unified-security-net
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  # ============================================
+  # Python HexStrike AI 服務（攻擊面）
+  # ============================================
+  
+  hexstrike-ai:
+    build:
+      context: ../../src/hexstrike-ai
+      dockerfile: Dockerfile
+    container_name: unified-hexstrike
+    environment:
+      HEXSTRIKE_PORT: 8888
+      HEXSTRIKE_HOST: 0.0.0.0
+      CACHE_SIZE: 1000
+      CACHE_TTL: 3600
+      COMMAND_TIMEOUT: 300
+    volumes:
+      - scan_results:/app/results
+      - ../../src/hexstrike-ai/logs:/app/logs
+    networks:
+      - unified-security-net
+    ports:
+      - "8888:8888"
+    restart: unless-stopped
+
+  # ============================================
+  # Next.js 前端
+  # ============================================
+  
+  frontend:
+    build:
+      context: ../../src/frontend
+      dockerfile: Dockerfile
+    container_name: unified-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+      NEXT_PUBLIC_HEXSTRIKE_URL: http://localhost:8888
+      NEXT_PUBLIC_AI_QUANTUM_URL: http://localhost:8000
+    depends_on:
+      - backend
+      - ai-quantum
+      - hexstrike-ai
+    networks:
+      - unified-security-net
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  # ============================================
+  # 監控服務
+  # ============================================
+  
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: unified-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - unified-security-net
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: unified-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: grafana-clock-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+    networks:
+      - unified-security-net
+    ports:
+      - "3002:3000"
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:latest
+    container_name: unified-loki
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+    networks:
+      - unified-security-net
+    ports:
+      - "3100:3100"
+    restart: unless-stopped
+

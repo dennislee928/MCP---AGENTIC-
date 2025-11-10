@@ -1,0 +1,62 @@
+# Prometheus 配置
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Alertmanager 配置
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# 規則檔案
+rule_files:
+  # - "alert_rules.yml"
+
+# 抓取配置
+scrape_configs:
+  # Prometheus 自身
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Go 後端
+  - job_name: 'backend'
+    metrics_path: '/metrics/prometheus'
+    static_configs:
+      - targets: ['backend:3001']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'go-backend'
+
+  # AI/量子服務
+  - job_name: 'ai-quantum'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['ai-quantum:8000']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'ai-quantum'
+
+  # HexStrike AI
+  - job_name: 'hexstrike'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['hexstrike-ai:8888']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'hexstrike-ai'
+
+  # PostgreSQL Exporter（如果啟用）
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']
+
+  # Redis Exporter（如果啟用）
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']
+
