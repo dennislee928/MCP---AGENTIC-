@@ -82,7 +82,7 @@ if ($deployBackend) {
     docker build -t unified-backend:latest .
     if ($LASTEXITCODE -eq 0) {
         Set-Location -Path "..\..\infrastructure\cloud-configs\cloudflare"
-        wrangler containers push backend ../../../src/backend/Dockerfile
+        wrangler containers push backend ../../../src/backend
         Write-Host "✅ Go Backend 映像已推送" -ForegroundColor Green
     } else {
         Write-Host "❌ Go Backend 建置失敗" -ForegroundColor Red
@@ -95,7 +95,7 @@ if ($deployAI) {
     docker build -t unified-ai-quantum:latest .
     if ($LASTEXITCODE -eq 0) {
         Set-Location -Path "..\..\infrastructure\cloud-configs\cloudflare"
-        wrangler containers push ai-quantum ../../../src/ai-quantum/Dockerfile
+        wrangler containers push ai-quantum ../../../src/ai-quantum
         Write-Host "✅ AI/Quantum 映像已推送" -ForegroundColor Green
     } else {
         Write-Host "❌ AI/Quantum 建置失敗" -ForegroundColor Red
@@ -108,7 +108,7 @@ if ($deployHexStrike) {
     docker build -t unified-hexstrike:latest .
     if ($LASTEXITCODE -eq 0) {
         Set-Location -Path "..\..\infrastructure\cloud-configs\cloudflare"
-        wrangler containers push hexstrike ../../../src/hexstrike-ai/Dockerfile
+        wrangler containers push hexstrike ../../../src/hexstrike-ai
         Write-Host "✅ HexStrike AI 映像已推送" -ForegroundColor Green
     } else {
         Write-Host "❌ HexStrike AI 建置失敗" -ForegroundColor Red

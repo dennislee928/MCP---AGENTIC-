@@ -83,7 +83,7 @@ if [ "$DEPLOY_BACKEND" = true ]; then
     docker build -t unified-backend:latest .
     if [ $? -eq 0 ]; then
         cd ../../infrastructure/cloud-configs/cloudflare
-        wrangler containers push backend ../../../src/backend/Dockerfile
+        wrangler containers push backend ../../../src/backend
         echo -e "${GREEN}✅ Go Backend 映像已推送${NC}"
     else
         echo -e "${RED}❌ Go Backend 建置失敗${NC}"
@@ -96,7 +96,7 @@ if [ "$DEPLOY_AI" = true ]; then
     docker build -t unified-ai-quantum:latest .
     if [ $? -eq 0 ]; then
         cd ../../infrastructure/cloud-configs/cloudflare
-        wrangler containers push ai-quantum ../../../src/ai-quantum/Dockerfile
+        wrangler containers push ai-quantum ../../../src/ai-quantum
         echo -e "${GREEN}✅ AI/Quantum 映像已推送${NC}"
     else
         echo -e "${RED}❌ AI/Quantum 建置失敗${NC}"
@@ -109,7 +109,7 @@ if [ "$DEPLOY_HEXSTRIKE" = true ]; then
     docker build -t unified-hexstrike:latest .
     if [ $? -eq 0 ]; then
         cd ../../infrastructure/cloud-configs/cloudflare
-        wrangler containers push hexstrike ../../../src/hexstrike-ai/Dockerfile
+        wrangler containers push hexstrike ../../../src/hexstrike-ai
         echo -e "${GREEN}✅ HexStrike AI 映像已推送${NC}"
     else
         echo -e "${RED}❌ HexStrike AI 建置失敗${NC}"
