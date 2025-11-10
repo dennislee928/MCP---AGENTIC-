@@ -3,6 +3,32 @@
  * Routes requests to the Go Backend container
  */
 
+import { Container, getContainer } from "@cloudflare/containers";
+
+// Durable Object class for Backend Container
+export class BackendContainer extends Container {
+  defaultPort = 3001;
+  sleepAfter = "5m";
+  
+  envVars = {
+    SERVICE_NAME: "backend",
+    ENVIRONMENT: "production"
+  };
+
+  onStart() {
+    console.log("Backend container started");
+  }
+
+  onStop() {
+    console.log("Backend container stopped");
+  }
+
+  onError(error) {
+    console.error("Backend container error:", error);
+  }
+}
+
+// Worker fetch handler
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -20,9 +46,9 @@ export default {
 
     // Route to container
     try {
-      // Forward request to container
-      const containerResponse = await env.BACKEND_CONTAINER.fetch(request);
-      return containerResponse;
+      // Get container instance (singleton pattern)
+      const container = getContainer(env.BACKEND_CONTAINER);
+      return await container.fetch(request);
     } catch (error) {
       return new Response(JSON.stringify({
         error: 'Container unavailable',

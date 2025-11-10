@@ -3,6 +3,32 @@
  * Routes requests to the AI/Quantum container
  */
 
+import { Container, getContainer } from "@cloudflare/containers";
+
+// Durable Object class for AI Container
+export class AIContainer extends Container {
+  defaultPort = 8000;
+  sleepAfter = "5m";
+  
+  envVars = {
+    SERVICE_NAME: "ai-quantum",
+    ENVIRONMENT: "production"
+  };
+
+  onStart() {
+    console.log("AI/Quantum container started");
+  }
+
+  onStop() {
+    console.log("AI/Quantum container stopped");
+  }
+
+  onError(error) {
+    console.error("AI/Quantum container error:", error);
+  }
+}
+
+// Worker fetch handler
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -20,9 +46,9 @@ export default {
 
     // Route to container
     try {
-      // Forward request to container
-      const containerResponse = await env.AI_CONTAINER.fetch(request);
-      return containerResponse;
+      // Get container instance (singleton pattern)
+      const container = getContainer(env.AI_CONTAINER);
+      return await container.fetch(request);
     } catch (error) {
       return new Response(JSON.stringify({
         error: 'Container unavailable',
