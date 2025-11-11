@@ -60,3 +60,4 @@ func (s *ScanJob) Duration() time.Duration {
 
 
 
+

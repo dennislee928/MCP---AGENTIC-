@@ -50,3 +50,4 @@ func (e *SecurityEvent) ResolutionTime() time.Duration {
 
 
 
+

@@ -63,3 +63,4 @@ func (f *ScanFinding) SeverityScore() int {
 
 
 
+
