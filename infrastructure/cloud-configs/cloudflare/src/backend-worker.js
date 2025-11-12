@@ -333,6 +333,14 @@ async function logAttack(request, attackDetected, env) {
       body = '';
     }
   }
+
+  const decodedQuery = safeDecode(url.search ? url.search.substring(1) : '');
+  const decodedBody = safeDecode(body);
+  const payloadForLog = (decodedBody || decodedQuery).substring(0, 1000);
+  const enrichedHeaders = {
+    ...headers,
+    'x-attack-details': attackDetected.details.slice(0, 5)
+  };
   
   try {
     const result = await env.DB.prepare(`
@@ -346,8 +354,8 @@ async function logAttack(request, attackDetected, env) {
       attackDetected.isAttack ? attackDetected.attackType : 'normal',
       request.method,
       url.pathname,
-      body.substring(0, 1000), // 限制大小
-      JSON.stringify(headers).substring(0, 2000),
+      payloadForLog,
+      JSON.stringify(enrichedHeaders).substring(0, 2000),
       headers['user-agent'] || 'unknown',
       headers['cf-connecting-ip'] || 'unknown'
     ).run();
